@@ -1,0 +1,54 @@
+---
+title: "Untitled"
+author: "Chhiring Lama, William Berritt, Puja Roy"
+date: "2024-03-06"
+output: html_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+## Introduction
+
+```{r }
+
+```
+
+## Team Members
+
+# William Berritt
+# Puja Roy
+# Chhiring Lama
+
+```{r, echo=FALSE}
+
+```
+
+## Project Tools
+
+# rstudio
+# Git Bash and GitHub
+# rpubs
+# zoom
+```{r}
+
+```
+
+## Most valued Data Science skills
+
+```{r}
+library(dplyr)
+library(tidyr)
+library(tidyr)
+library(xml2)
+library(rjson)
+library(XML)
+```
+
+
+
+
+
+
+
