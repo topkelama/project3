@@ -40,15 +40,109 @@ knitr::opts_chunk$set(echo = TRUE)
 ```{r}
 library(dplyr)
 library(tidyr)
-library(tidyr)
-library(xml2)
-library(rjson)
-library(XML)
+library(RMySQL)
+library(DBI)
+library(RSQLite)
 ```
 
 
+```{r}
+ds_salaries_data <- read.csv("https://raw.githubusercontent.com/topkelama/project3/main/ds_salaries.csv")
+```
 
 
+```{r}
+str(ds_salaries_data)
+```
 
 
+```{r}
+# Check for missing values
+colSums(is.na(ds_salaries_data))
+
+```
+
+
+```{r, echo=TRUE}
+# Check for duplicates
+duplicated_rows <- ds_salaries_data[duplicated(ds_salaries_data), ]
+ds_data <- ds_salaries_data[!duplicated(ds_salaries_data), ]
+ds_data
+```
+
+```{r}
+
+
+```
+
+
+```{r}
+# # Assign unique job_title_ID using dense_rank
+# df <- ds_data %>%
+#   mutate(job_title_ID = dense_rank(job_title))
+# 
+#  #Group by 'job_title_ID' and 'job_title' and count the occurrences
+# df_grouped <- df %>%
+#   group_by(job_title_ID, job_title) %>%
+#   summarize(count = n())
+# 
+# # Print the grouped data
+# head(df_grouped)
+```
+
+
+```{r}
+# # Reorder columns in df_grouped
+# df_grouped <- df_grouped %>%
+#   select(job_title, job_title_ID, count)
+# 
+# # Now perform the left join
+# df <- left_join(df, df_grouped, by = "job_title")
+# df
+```
+```{r}
+
+```
+
+```{r}
+
+```
+
+
+```{r}
+# # Drop the redundant job_title_ID.x column
+# df <- df[, !grepl("^job_title_ID.x", colnames(df))]
+# 
+# # Rename job_title_ID.y to job_title_ID
+# colnames(df)[which(colnames(df) == "job_title_ID.y")] <- "job_title_ID"
+# 
+# # Print the updated dataframe
+# head(df)
+```
+
+
+```{r}
+df <- ds_data[, -1]  # Remove the first column (X)
+head(df)
+```
+
+
+```{r}
+# # Reorder columns
+# df <- df[, c(1:5, 13, 14, 6:12)]
+# 
+# # Print the updated dataframe
+# print(head(df))
+
+```
+
+
+```{r}
+
+
+```
+
+```{r}
+write.csv(df, "C:\\Users\\Chhiring\\iCloudDrive\\CUNY_MS\\DATA607\\file.csv", row.names = FALSE)
+```
 
