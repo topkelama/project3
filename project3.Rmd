@@ -17,7 +17,7 @@ knitr::opts_chunk$set(echo = TRUE)
 
 ## Team Members
 
-# William Berritt
+# William Berritt!
 # Puja Roy
 # Chhiring Lama
 
