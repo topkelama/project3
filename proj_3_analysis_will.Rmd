@@ -1,0 +1,175 @@
+---
+title: "will_analysis_proj_3"
+output: html_document
+date: "2024-03-18"
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+### Load packages
+```{r, message = FALSE}
+# Load libraries
+library('DBI')  # Database interface in R
+library('RMySQL')  # MySQL driver for R
+library('tidyr')  # Data tidying functions
+library('dplyr')  # Data tidying functions
+library(ggplot2)
+```
+### Create dataframe for analysis from Azure
+```{r}
+# Connect to SQL DB in R
+mydb <- dbConnect(MySQL(), user='chhiring.lama65', password='lama65', dbname='chhiring.lama65', host='cunydata607sql.mysql.database.azure.com')
+
+# Retrieve data from database tables
+job <- dbGetQuery(mydb,'select * from job')
+company <- dbGetQuery(mydb,'select * from company')
+
+# Join tables based on a common column 'cid'
+total_df_joined <- left_join(company, job, by='cid')
+
+# Join tables and filter data
+total_df <- left_join(company, job, by='cid')
+total_df <- subset(total_df, total_df$employment_type=='FT')
+
+# Count null rows in the dataframe
+count_null_rows <- sum(rowSums(is.na(total_df)) > 0)
+```
+### Analyze pay by job title
+```{r, message=FALSE}
+# Calculate mean and median salary by job title
+mean_salary_by_job_title <- total_df |> group_by(job_title) |> 
+  summarize(mean_salary = mean(salary_in_usd), median_salary = median(salary_in_usd), count = n())
+
+# Arrange job titles by descending mean salary
+result_job_title <- mean_salary_by_job_title |> arrange(desc(mean_salary))
+result_job_title <- subset(result_job_title, result_job_title$count>5)
+result_job_title
+
+# Perform sub-analysis for specific job titles and locations
+engineer_consultant_country <- subset(total_df, total_df$job_title=='Big Data Engineer' | total_df$job_title=='Data Science Consultant') |> 
+  group_by(company_location) |> summarize(mean_by_country_title = mean(salary_in_usd), median = median(salary_in_usd), count = n()) |> arrange(desc(mean_by_country_title))
+engineer_consultant_country
+```
+### Analyze pay by remote ratio
+```{r}
+# Calculate mean salary by remote work ratio
+mean_salary_by_remote_ratio <- total_df |> group_by(remote_ratio) |> 
+  summarize(mean_salary = mean(salary_in_usd), median_salary = median(salary_in_usd), count = n())
+
+# Arrange remote work ratios by descending mean salary
+result_remote_ratio <- mean_salary_by_remote_ratio |> arrange(desc(mean_salary))
+result_remote_ratio <- subset(result_remote_ratio, result_remote_ratio$count>5)
+result_remote_ratio
+
+# Perform sub-analysis for specific remote work ratios and company locations
+mean_salary_by_remote_ratio <- total_df |> group_by(remote_ratio, company_location) |> 
+  summarize(mean_salary = mean(salary_in_usd), median_salary = median(salary_in_usd), count = n())
+
+# Arrange remote work ratios by descending mean salary
+result_remote_ratio <- mean_salary_by_remote_ratio |> arrange(desc(mean_salary))
+
+# Subset remote work ratios with specific values and counts
+result_remote_ratio_100 <- subset(result_remote_ratio, remote_ratio==100 & count>2)
+result_remote_ratio_50 <- subset(result_remote_ratio, remote_ratio==50 & count>2)
+result_remote_ratio_0 <- subset(result_remote_ratio, remote_ratio==0 & count>2)
+result_remote_ratio_100
+result_remote_ratio_50
+result_remote_ratio_0
+```
+### Analyze pay by currency offered
+```{r}
+# Calculate mean salary by offered currency
+mean_salary_by_currency_offered <- total_df |> group_by(salary_currency) |> 
+  summarize(mean_salary = mean(salary_in_usd), median_salary = median(salary_in_usd), count = n())
+
+# Arrange currencies by descending mean salary
+result_currency_offered <- mean_salary_by_currency_offered |> arrange(desc(mean_salary))
+result_currency_offered <- subset(result_currency_offered, result_currency_offered$count>5)
+result_currency_offered
+
+# Calculate mean salary by year
+mean_salary_by_year <- total_df |> group_by(work_year) |> 
+  summarize(mean_salary = mean(salary_in_usd), median_salary = median(salary_in_usd), count = n())
+
+# Arrange years by ascending mean salary
+result_by_year <- mean_salary_by_year |> arrange(mean_salary)
+result_by_year <- subset(result_by_year, result_by_year$count>5)
+result_by_year
+
+# Add inflation data
+inflation <- tibble(
+  work_year = c(2020, 2021, 2022),
+  inflation_rate = c(1.40, 7.00, 6.50)
+)
+results_inflation <- left_join(result_by_year, inflation, by = 'work_year')
+
+# Figure out salary growth vs inflation
+results_inflation <- results_inflation |> mutate(percent_change = (mean_salary / lag(mean_salary) - 1) * 100)
+perfomance_vs_inflation <- (125195)/((1 + 1.40 / 100)*(1 + 7 / 100)*(1 + 6.5 / 100)*(98543))
+perfomance_vs_inflation <- (perfomance_vs_inflation - 1)*100
+paste('Salary growth has outperformed inflation rate by ', perfomance_vs_inflation, '% since 2020', sep = '')
+```
+### Analyze pay by experience level
+```{r}
+# Calculate mean salary by experience level
+mean_salary_by_exp_level <- total_df |> group_by(experience_level) |> 
+  summarize(mean_salary = mean(salary_in_usd), median_salary = median(salary_in_usd), count = n())
+
+# Arrange experience levels by descending mean salary
+result_exp_level <- mean_salary_by_exp_level |> arrange(desc(mean_salary))
+result_exp_level <- subset(result_exp_level, result_exp_level$count>5)
+result_exp_level
+
+# Define years of experience for each level
+yoe <- tibble(
+  experience_level = c('EX', 'SE', 'MI', 'EN'),
+  year_of_experience = c(10, 8, 4, 1)
+)
+
+# Join experience levels with years of experience
+exp_leve_w_years <- left_join(result_exp_level, yoe, by = 'experience_level')
+exp_leve_w_years <- exp_leve_w_years |> arrange(mean_salary)
+exp_leve_w_years <- exp_leve_w_years |> arrange(mean_salary)
+exp_leve_w_years
+
+# Calculate mean salary changes and average pay increase by year
+exp_leve_w_years <- exp_leve_w_years |> 
+  mutate(mean_salary_change = mean_salary - lag(mean_salary, default = first(mean_salary)),
+         year_of_experience_change = year_of_experience - lag(year_of_experience, default = first(year_of_experience)))
+exp_leve_w_years$mean_salary_change_average <- exp_leve_w_years$mean_salary_change/exp_leve_w_years$year_of_experience_change
+average_pay_increase_by_year <- mean(exp_leve_w_years$mean_salary_change_average, na.rm = TRUE)
+average_pay_increase_by_year
+
+# Reshape data into long format
+data_long <- pivot_longer(exp_leve_w_years, cols = c(mean_salary, median_salary),
+                          names_to = "salary_type", values_to = "salary")
+
+# Create a grouped bar chart
+ggplot(data = data_long, aes(x = experience_level, y = salary, fill = salary_type)) +
+  geom_bar(stat = "identity", position = position_dodge(width = 0.9), color = "black") +
+  labs(title = "Mean and Median Salary by Experience Level",
+       x = "Experience Level",
+       y = "Income",
+       fill = "Salary Type") +
+  scale_fill_manual(values = c("mean_salary" = "blue", "median_salary" = "red")) +
+  theme_minimal()
+```
+Analyze pay by employee residence
+```{r}
+# Calculate mean salary by employee residence
+mean_salary_by_employee_res <- total_df |> group_by(employee_residence) |> 
+  summarize(mean_salary = mean(salary_in_usd), median_salary = median(salary_in_usd), count = n())
+result_employee_res <- mean_salary_by_employee_res |> arrange(desc(mean_salary))
+result_employee_res <- subset(result_employee_res, result_employee_res$count>5)
+result_employee_res
+```
+Analyze pay by company location
+```{r}
+# Calculate mean salary by company location
+mean_salary_by_company_loc <- total_df |> group_by(company_location) |> 
+  summarize(mean_salary = mean(salary_in_usd), median_salary = median(salary_in_usd), count = n())
+result_company_loc <- mean_salary_by_company_loc |> arrange(desc(mean_salary))
+result_company_loc <- subset(result_company_loc, result_company_loc$count>5)
+result_company_loc
+```
