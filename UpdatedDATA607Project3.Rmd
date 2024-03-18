@@ -1,0 +1,343 @@
+---
+title: "DATA 607 Project 3"
+author: "Puja Roy, Chhiring Lama, William Berritt"
+date: "`r Sys.Date()`"
+output: openintro::lab_report
+---
+
+### Load the packages 
+```{r load-packages, message=FALSE}
+library(tidyverse)
+library(openintro)
+
+library('DBI')
+library('RMySQL')
+```
+
+### Introduction
+
+For this project, the aim is to obtain data to answer the question, “Which are the most valued data science skills?”
+
+We obtained the Data Science Job Salaries dataset from Kaggle: https://www.kaggle.com/datasets/ruchi798/data-science-job-salaries?resource=download
+which contains information about salaries of jobs in the Data Science domain. The dataset includes work year, company size, job title, salary in USD, employee residence and company location.
+
+We decided to focus on job titles that included salary in the USD and worked with variables including the work year, company size and company location.
+
+### Load the data
+We stored the data in MySQL workbench and azure database, joined the tables that contained data of company and job and then queried it using R.
+```{r}
+mydb <- dbConnect(MySQL(), user='chhiring.lama65', password='lama65', dbname='chhiring.lama65', host='cunydata607sql.mysql.database.azure.com')
+
+dbListTables(mydb)
+
+df1 <- dbGetQuery(mydb,'select * from company')
+
+print(df1)
+```
+
+### Join the Tables to obtain the full data
+```{r}
+job <- dbGetQuery(mydb,'select * from job')
+
+company <- dbGetQuery(mydb,'select * from company')
+
+total_df <- left_join(company, job, by='cid')
+print(total_df)
+```
+
+### Data Exploration and Analysis
+We checked for missing and duplicate values. As shown below in the results, there were no missing or duplicate values.
+```{r}
+# Data Exploration
+str(total_df)
+summary(total_df)
+# Check for missing values
+sum(is.na(total_df))
+```
+
+```{r}
+# Print out the column names
+print(colnames(total_df))
+```
+To verify duplicate values in the dataset, I used the duplicated() function. This creates a new dataframe displaying any duplication values. I also used the sum function.
+```{r}
+num_duplicates <- sum(duplicated(total_df))
+# Check for duplicates
+duplicates <- total_df[duplicated(total_df), ]
+print(duplicates)
+```
+There are no duplicate values in the dataset.
+
+### Extract Relevant Skills
+
+I extracted certain skills based on job titles including Data Scientist, Data Analyst and Machine Learning Engineer which would imply skills relevant to data science.
+```{r}
+# Analysis
+# Extract relevant skills (based on job titles)
+data_science_roles <- c("Data Scientist", "Data Analyst", "Machine Learning Engineer")
+data_science_data <- total_df[total_df$job_title %in% data_science_roles, ]
+print(data_science_data)
+```
+I used the dplyr library to filter the data and compute the summary statistics including the median, mean, min and max salary by job title. The Data Scientist job title had the highest mean salary among the other job titles based on data science roles.
+```{r}
+library(dplyr)
+
+# Filter data for relevant job titles
+data_science_roles <- c("Data Scientist", "Data Analyst", "Machine Learning Engineer")
+data_science_data <- total_df[total_df$job_title %in% data_science_roles, ]
+
+# Summary statistics of salary by job title
+summary_stats <- data_science_data %>%
+  group_by(job_title) %>%
+  summarise(
+    median_salary = median(salary_in_usd),
+    mean_salary = mean(salary_in_usd),
+    min_salary = min(salary_in_usd),
+    max_salary = max(salary_in_usd)
+  )
+
+print(summary_stats)
+```
+
+### Salary Distributions based on Job Title, Work Experience & Location
+
+We created visualizations to display the summary statistics of salary by job title using ggplot2. Below is a boxplot where each box represents the distribution of salaries for each job title. It provides a visual comparison of the median, quartiles, and potential outliers for each job title's salary distribution. 
+
+```{r}
+# Boxplot visualization with color and removed scientific notation
+boxplot <- ggplot(data_science_data, aes(x = job_title, y = salary_in_usd, fill = job_title)) +
+  geom_boxplot() +
+  scale_y_continuous(labels = scales::comma) +  # Remove scientific notation
+  labs(title = "Salary Distribution by Job Title",
+       x = "Job Title",
+       y = "Salary (USD)") +
+  theme_minimal()
+
+print(boxplot)
+
+```
+
+We directly searched for the highest salary across all job titles in the data_science_data data frame by using the which.max() function. The job title "Data Scientist" had the highest salary: $412,000 for the work year 2020 and experience level SE. The job title "Data Scientist" had the lowest salary: $2859 for the work year 2021 and experience level MI.
+
+```{r}
+# Find the row index of the highest salary
+highest_salary_index <- which.max(data_science_data$salary_in_usd)
+
+# Get the corresponding row with the highest salary
+highest_salary_row <- data_science_data[highest_salary_index, ]
+
+print(highest_salary_row)
+
+```
+
+
+```{r}
+# Find the row index of the lowest salary
+lowest_salary_index <- which.min(data_science_data$salary_in_usd)
+
+# Get the corresponding row with the lowest salary
+lowest_salary_row <- data_science_data[lowest_salary_index, ]
+
+print(lowest_salary_row)
+
+```
+The bar plot below displays the salary distribution by work experience and job title based on years 2020-2022. During the years 2020 and 2022, the job title Data Scientist received higher salaries compared to Data Analyst and Machine Learning Engineer roles. In 2021, Data Analyst and Machine Learning Engineer roles received the same salary distribution.
+
+```{r}
+# Create a bar plot for each job title
+ggplot(data_science_data, aes(x = factor(work_year), y = salary_in_usd, fill = job_title)) +
+  geom_bar(stat = "identity", position = "dodge") +
+  labs(title = "Salary Distribution by Work Experience and Job Title",
+       x = "Work Experience (Years)",
+       y = "Salary (USD)",
+       fill = "Job Title") +
+  scale_y_continuous(labels = scales::comma_format()) +
+  theme_minimal()
+
+```
+
+The bar plots below displays that there were a higher frequency of Data Scientist roles. 
+```{r}
+# Create a bar plot of job titles with count values
+ggplot(data_science_data, aes(x = job_title)) +
+  geom_bar() +
+  geom_text(stat = 'count', aes(label=..count..), vjust = -0.1) + # Add count values on top of bars
+  labs(title = "Distribution of Data Science Job Titles",
+       x = "Job Title",
+       y = "Frequency") +
+  theme(axis.text.x = element_text())
+```
+
+More scatter plots in the US and fewer in other locations suggest differences in the distribution and representation of salary data across different geographic regions, potentially reflecting underlying socioeconomic and industrial factors.
+```{r}
+# Filter data for USD locations
+df_usd <- total_df[total_df$salary_currency == "USD", ]
+
+# Scatter plot: Salary (USD) vs. Location (with reversed axes)
+ggplot(df_usd, aes(x = salary_in_usd, y = company_location)) +
+  geom_point(alpha = 0.5) +
+  labs(title = "Salary Distribution by Location (USD)",
+       x = "Salary (USD)",
+       y = "Location") +
+  scale_x_continuous(labels = scales::comma) +  # Remove scientific notation
+  theme(axis.text.y = element_text(hjust = 1))  # Adjust text alignment
+```
+
+Based on this scatter plot displaying the salary distribution by Job title, there are a crowd of scattered points for the data science roles: Data Analyst, Data Scientist and Data Engineer. This means that there is a higher representation of these job titles being prevalent in the dataset compared to other data science job titles. It also seems that these 3 roles are popular in the data science industry.
+
+The spread of these points for each job title category reflects significant differences in compensation depending on factors such as experience, education, location, and specific industry.
+
+The clustering of points around these job titles could also indicate higher demand or competition in the job market for roles like Data Analyst, Data Scientist, and Data Engineer. Companies may be offering a wide range of salaries to attract talent in these fields.
+
+To add on, this might also signify ongoing trends or changes in the industry where roles related to data analysis and data science are in high demand. This could be due to advancements in technology, the increasing importance of data-driven decision-making, or emerging sectors such as artificial intelligence and machine learning.
+
+```{r}
+# Filter data for USD locations
+df_usd <- total_df[total_df$salary_currency == "USD", ]
+
+# Scatter plot: Salary (USD) vs. Job Title (with reversed axes)
+ggplot(df_usd, aes(x = salary_in_usd, y = reorder(job_title, desc(salary_in_usd)))) +
+  geom_point(alpha = 0.5) +
+  labs(title = "Salary Distribution by Job Title",
+       x = "Salary (USD)",
+       y = "Job Title") +
+  scale_x_continuous(labels = scales::comma_format())  # Remove scientific notation
+```
+
+We also calculated the average salary by the work year, experience level, job title and company size and visualized the results in a heat map to observe the color intensity between each variable. 
+
+Each cell in the heatmap represents the average salary for a combination of the work year, job title, experience level, and company size.
+
+The color intensity of each cell represents the average salary, with higher intensities indicating higher average salaries.
+
+### Heat Maps based on Average Salary & Job Title by Work year, Experience Level, Employment Type & Company Size
+```{r}
+library(ggplot2)
+
+# Calculate average salary by work year and job title
+average_salary <- aggregate(salary_in_usd ~ work_year + job_title, data = df_usd, FUN = mean)
+print(average_salary)
+
+# Create a heat map
+ggplot(average_salary, aes(x = work_year, y = job_title, fill = salary_in_usd)) +
+  geom_tile() +
+  scale_fill_gradient(low = "lightblue", high = "darkblue", labels = scales::comma) +  # Remove scientific notation
+  labs(title = "Average Salary by Work Year and Job Title",
+       x = "Work Year",
+       y = "Job Title",
+       fill = "Average Salary (USD)") +
+  theme(legend.position = "right")  # Adjust legend position
+
+```
+
+The abbreviations "EN", "EX", "MI", and "SE" likely represent different experience levels. Below is a typical interpretation of these abbreviations:
+
+- EN: Entry-level
+- EX: Experienced
+- MI: Mid-level
+- SE: Senior-level
+
+These abbreviations are commonly used in job postings or HR contexts to describe the level of experience required or preferred for a particular role.
+
+```{r}
+library(ggplot2)
+
+# Calculate average salary by experience level, job title, and company size
+average_salary <- aggregate(salary_in_usd ~ experience_level + job_title + company_size, data = df_usd, FUN = mean)
+print(average_salary)
+
+# Create a heatmap
+ggplot(average_salary, aes(x = experience_level, y = job_title, fill = salary_in_usd)) +
+  geom_tile() +
+  scale_fill_gradient(low = "lightblue", high = "darkblue", labels = scales::comma) +  # Remove scientific notation
+  labs(title = "Average Salary by Job Title and Experience Level",
+       x = "Experience Level",
+       y = "Job Title",
+       fill = "Average Salary (USD)") +
+  theme(legend.position = "right")  # Adjust legend position
+
+```
+
+The abbreviations "L", "M", "S" represent different company sizes. Below is a typical interpretation of these abbreviations:
+
+- L: Large-Sized
+- M: Mid-Sized
+- S: small-sized
+
+```{r}
+library(ggplot2)
+
+# Calculate average salary by company size, job title, and experience level
+average_salary <- aggregate(salary_in_usd ~ company_size + job_title + experience_level, data = df_usd, FUN = mean)
+print(average_salary)
+
+# Create a heatmap
+ggplot(average_salary, aes(x = company_size, y = job_title, fill = salary_in_usd)) +
+  geom_tile() +
+  scale_fill_gradient(low = "lightblue", high = "darkblue", labels = scales::comma) +  # Remove scientific notation
+  labs(title = "Average Salary by Job Title and Company Size",
+       x = "Company Size",
+       y = "Job Title",
+       fill = "Average Salary (USD)") +
+  theme(legend.position = "right")  # Adjust legend position
+
+```
+
+The abbreviations "CT", "FL", "FT", and "PT" likely represent different types of employment. Here's a typical interpretation of these abbreviations:
+
+- CT: Contract or Contractor
+- FL: Freelance or Freelancer
+- FT: Full-time
+- PT: Part-time
+
+These abbreviations are commonly used in employment contexts to describe the nature of the work arrangement or employment status. Each abbreviation corresponds to a different type of employment arrangement, indicating whether the position is full-time, part-time, contract-based, or freelance.
+
+```{r}
+library(ggplot2)
+
+# Calculate average salary by employment type, job title, and experience level
+average_salary <- aggregate(salary_in_usd ~ employment_type + job_title + experience_level, data = df_usd, FUN = mean)
+print(average_salary)
+
+# Create a heatmap
+ggplot(average_salary, aes(x = employment_type, y = job_title, fill = salary_in_usd)) +
+  geom_tile() +
+  scale_fill_gradient(low = "lightblue", high = "darkblue", labels = scales::comma) +  # Remove scientific notation
+  labs(title = "Average Salary by Job Title and Employment Type",
+       x = "Employment Type",
+       y = "Job Title",
+       fill = "Average Salary (USD)") +
+  theme(legend.position = "right")  # Adjust legend position
+
+```
+
+### Top 10 Data Science Job Titles by Average Salary
+
+```{r}
+library(dplyr)
+library(ggplot2)
+
+# Calculate average salary by job title
+average_salary <- df_usd %>%
+  group_by(job_title) %>%
+  summarise(average_salary = mean(salary_in_usd)) %>%
+  arrange(desc(average_salary)) %>%
+  slice(1:10)  # Select top 10 job titles
+
+# Create a bar plot
+ggplot(average_salary, aes(x = reorder(job_title, -average_salary), y = average_salary)) +
+  geom_bar(stat = "identity", fill = "darkblue") +
+  geom_text(aes(label = sprintf("$%.2f", average_salary)), vjust = -0.1, size = 3) +  # Add salary labels
+  labs(title = "Top 10 Data Science Job Titles by Average Salary",
+       x = "Job Title",
+       y = "Average Salary (USD)") +
+  scale_y_continuous(labels = scales::comma_format()) +  # Remove scientific notation
+  theme(axis.text.x = element_text(angle = 45, hjust = 1),
+        axis.title.x = element_blank())  # Remove x-axis label for better readability
+
+```
+
+
+### Conclusion
+Based on the data analysis and visualization conducted from this dataset we obtained from Kaggle, it is evident that data science roles involving Data Analyst, Data Scientist and Machine Learning Engineer are the most valued data science skills due to high representation, salary distribution, job market demand and industry trends. Based on the data visualizations above, in 2021 and 2022, the average salary for the data science job titles: Financial Data Analyst and Data Analytics Lead were the highest. The average salary by Experience Levels (Experienced (EX), Mid-level (MI) and Senior-level (SE) ) for the data science job titles: Principal Data Engineer, Research Scientist, Financial Data Analyst and Data Analytics Manager were the highest. To add on, the average salary for data science roles were the highest for mostly large sized companies. Based on the data visualizations, the average salary for the job titles: Financial Data Analyst and Data Analytics Lead were paid the highest in large size companies. On the other hand, Research Scientists were paid the highest in mid-sized companies and Principal Data Scientists were paid the highest in small sized companies. There is a higher color intensity for data science job titles that are full time which proves that the job titles: Financial Data Analyst and Data Analytics Lead receive the highest salary. In contrast, Principal Data Scientists receive a high salary as Contractors. Therefore, data science skills involved with analytics, science, financial, machine learning and research are valued the most.
+
