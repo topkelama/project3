@@ -25,14 +25,24 @@ We decided to focus on job titles that included salary in the USD and worked wit
 
 ### Load the data
 We stored the data in MySQL workbench and azure database, joined the tables that contained data of company and job and then queried it using R.
-```{r}
-mydb <- dbConnect(MySQL(), user='chhiring.lama65', password='lama65', dbname='chhiring.lama65', host='cunydata607sql.mysql.database.azure.com')
+```{r echo=FALSE}
+# Assign the password to a variable
+db_password <- "lama65"
 
+# Connect to the database
+mydb <- dbConnect(MySQL(), user='chhiring.lama65', password=db_password, dbname='chhiring.lama65', host='cunydata607sql.mysql.database.azure.com')
+```
+
+```{r}
+# List tables in the database (not shown in the published document)
 dbListTables(mydb)
 
+# Retrieve data from a specific table
 df1 <- dbGetQuery(mydb,'select * from company')
 
+# Print the retrieved data
 print(df1)
+
 ```
 
 ### Join the Tables to obtain the full data
@@ -257,6 +267,7 @@ ggplot(average_salary, aes(x = experience_level, y = job_title, fill = salary_in
   theme(legend.position = "right")  # Adjust legend position
 
 ```
+
 The abbreviations "L", "M", "S" represent different company sizes. Below is a typical interpretation of these abbreviations:
 
 - L: Large-Sized
@@ -307,6 +318,32 @@ ggplot(average_salary, aes(x = employment_type, y = job_title, fill = salary_in_
        y = "Job Title",
        fill = "Average Salary (USD)") +
   theme(legend.position = "right")  # Adjust legend position
+
+```
+
+### Top 10 Data Science Job Titles by Average Salary
+
+```{r}
+library(dplyr)
+library(ggplot2)
+
+# Calculate average salary by job title
+average_salary <- df_usd %>%
+  group_by(job_title) %>%
+  summarise(average_salary = mean(salary_in_usd)) %>%
+  arrange(desc(average_salary)) %>%
+  slice(1:10)  # Select top 10 job titles
+
+# Create a bar plot
+ggplot(average_salary, aes(x = reorder(job_title, -average_salary), y = average_salary)) +
+  geom_bar(stat = "identity", fill = "darkblue") +
+  geom_text(aes(label = sprintf("$%.2f", average_salary)), vjust = -0.1, size = 3) +  # Add salary labels
+  labs(title = "Top 10 Data Science Job Titles by Average Salary",
+       x = "Job Title",
+       y = "Average Salary (USD)") +
+  scale_y_continuous(labels = scales::comma_format()) +  # Remove scientific notation
+  theme(axis.text.x = element_text(angle = 45, hjust = 1),
+        axis.title.x = element_blank())  # Remove x-axis label for better readability
 
 ```
 
