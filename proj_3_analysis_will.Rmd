@@ -3,7 +3,7 @@ title: "will_analysis_proj_3"
 output: html_document
 date: "2024-03-18"
 ---
-
+# Intro: After first connecting to the normalized Azure database and creating a main data frame to work with, I wanted to perform analysis and assess how each independent variable affects the pay one can expect. What's the most important factors? What differences can help us understand which roles will pay more than others? How do different experience levels affect income? Job titles? How have salaries changed from 2020 to 2022? Has it outpaced inflation? With these questions in mind I began my analysis. 
 ```{r setup, include=FALSE}
 knitr::opts_chunk$set(echo = TRUE)
 ```
@@ -35,6 +35,28 @@ total_df <- subset(total_df, total_df$employment_type=='FT')
 # Count null rows in the dataframe
 count_null_rows <- sum(rowSums(is.na(total_df)) > 0)
 ```
+### Analyze pay by company
+```{r, message=FALSE}
+# Calculate mean and median salary by company
+mean_salary_by_company <- total_df |> group_by(cid, salary_currency) |>  # Group by 'cid' and 'salary_currency'
+  summarize(mean_salary = mean(salary_in_usd), median_salary = median(salary_in_usd), count = n())  # Calculate mean and median salaries, and count of records
+result_by_company <- mean_salary_by_company |> arrange(desc(mean_salary))  # Arrange by descending mean salary
+result_by_company <- subset(result_by_company, result_by_company$count>5)  # Subset companies with more than 5 records
+
+# Add cost of living information
+eur_avg_monthly_cost <- mean(c(1260, 1128, 1414))  # Calculate average monthly cost for EUR currency
+cost_of_living <- tibble(
+  salary_currency = c("USD", "GBP", "EUR", "INR"),  # Currency codes
+  monthly_cost = c(1951, 1929, eur_avg_monthly_cost, 423)  # Monthly costs for each currency
+)
+w_monthly_cost <- left_join(result_by_company, cost_of_living, by='salary_currency')  # Join salary and cost of living data
+w_monthly_cost$annual_cost <- w_monthly_cost$monthly_cost*12  # Calculate annual cost
+w_monthly_cost$proportion_income_monthly_exp <- w_monthly_cost$annual_cost/w_monthly_cost$mean_salary  # Calculate wealthiness based on annual cost and mean salary
+
+# Arrange companies by wealthiness
+wealthiness <- w_monthly_cost |> arrange(proportion_income_monthly_exp)  # Arrange by descending wealthiness
+wealthiness[c("cid","salary_currency", "mean_salary","proportion_income_monthly_exp")]
+```
 ### Analyze pay by job title
 ```{r, message=FALSE}
 # Calculate mean and median salary by job title
@@ -52,7 +74,7 @@ engineer_consultant_country <- subset(total_df, total_df$job_title=='Big Data En
 engineer_consultant_country
 ```
 ### Analyze pay by remote ratio
-```{r}
+```{r, message=FALSE}
 # Calculate mean salary by remote work ratio
 mean_salary_by_remote_ratio <- total_df |> group_by(remote_ratio) |> 
   summarize(mean_salary = mean(salary_in_usd), median_salary = median(salary_in_usd), count = n())
@@ -87,7 +109,10 @@ mean_salary_by_currency_offered <- total_df |> group_by(salary_currency) |>
 result_currency_offered <- mean_salary_by_currency_offered |> arrange(desc(mean_salary))
 result_currency_offered <- subset(result_currency_offered, result_currency_offered$count>5)
 result_currency_offered
+```
 
+### Analyze pay by year
+```{r}
 # Calculate mean salary by year
 mean_salary_by_year <- total_df |> group_by(work_year) |> 
   summarize(mean_salary = mean(salary_in_usd), median_salary = median(salary_in_usd), count = n())
@@ -110,6 +135,7 @@ perfomance_vs_inflation <- (125195)/((1 + 1.40 / 100)*(1 + 7 / 100)*(1 + 6.5 / 1
 perfomance_vs_inflation <- (perfomance_vs_inflation - 1)*100
 paste('Salary growth has outperformed inflation rate by ', perfomance_vs_inflation, '% since 2020', sep = '')
 ```
+
 ### Analyze pay by experience level
 ```{r}
 # Calculate mean salary by experience level
@@ -155,7 +181,7 @@ ggplot(data = data_long, aes(x = experience_level, y = salary, fill = salary_typ
   scale_fill_manual(values = c("mean_salary" = "blue", "median_salary" = "red")) +
   theme_minimal()
 ```
-Analyze pay by employee residence
+### Analyze pay by employee residence
 ```{r}
 # Calculate mean salary by employee residence
 mean_salary_by_employee_res <- total_df |> group_by(employee_residence) |> 
@@ -164,7 +190,7 @@ result_employee_res <- mean_salary_by_employee_res |> arrange(desc(mean_salary))
 result_employee_res <- subset(result_employee_res, result_employee_res$count>5)
 result_employee_res
 ```
-Analyze pay by company location
+### Analyze pay by company location
 ```{r}
 # Calculate mean salary by company location
 mean_salary_by_company_loc <- total_df |> group_by(company_location) |> 
@@ -173,3 +199,9 @@ result_company_loc <- mean_salary_by_company_loc |> arrange(desc(mean_salary))
 result_company_loc <- subset(result_company_loc, result_company_loc$count>5)
 result_company_loc
 ```
+
+# Conclusion: There are many different insights this analysis provides but there are a few extra-interesting points of analysis: 
+### 1. The USA has the highest nominal and relative pay proportionate to monthly expenses. India, despite having the lowest mean_salary, has the next highest pay proportionate to monthly expenses - greater than Greece, Great Britain and Spain. 
+### 2. 50% remote pays significantly less than both 0% remote and 100% remote
+### 3. Salary growth in the data science industry has outperformed inflation by about 10% - which is good given high inflation rates. Granted, these are salaries for a variety of countries and continents so comparing directly to US inflation rates is not a perfect science
+### 4. (After assigning a somewhat arbitrary but defensible number of years of experience to experience_levels) the yearly increase in pay spanning from entry level to executive level is between $15k-16k. This number is probably better represented by a perecentage but interesting to see what a year of experience is worth in the Data Science world.
